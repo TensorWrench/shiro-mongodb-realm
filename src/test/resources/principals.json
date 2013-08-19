@@ -1,0 +1,31 @@
+{ 
+"principals": [
+	{
+		"_id" : "sample-principal-admin",
+		"@contentType" : "application/vnd-tensorwrench-principal-v0+json",
+		"authorities" : ["principal:sample-principal-admin"],
+		"roles" : ["role:admin","role:user"],
+		"passwordAuthentication" : { 
+				"name" : "admin", 
+				"password" : "U+TNpahMvCbC4d+/TgNnyySH3CUFJ6SI5fuGkrWKEdg=" , 
+				"salt" : "w4lbMdvVSZL8Um9ixQndbw==" , 
+				"algorithm" : "SHA-256" , 
+				"hashIterations" : 100000,
+				"comment" : "The password is 'password'"
+		}
+	},
+	{
+		"_id" : "sample-principal-user",
+		"@contentType" : "application/vnd-tensorwrench-principal-v0+json",
+		"authorities" : ["principal:sample-principal-admin"],
+		"roles" : ["role:user"],
+		"passwordAuthentication" : { 
+				"name" : "mongoUser", 
+				"password" : "U+TNpahMvCbC4d+/TgNnyySH3CUFJ6SI5fuGkrWKEdg=" , 
+				"salt" : "w4lbMdvVSZL8Um9ixQndbw==" , 
+				"algorithm" : "SHA-256" , 
+				"hashIterations" : 100000,
+				"comment" : "The password is 'password'"
+		}
+	}
+]}

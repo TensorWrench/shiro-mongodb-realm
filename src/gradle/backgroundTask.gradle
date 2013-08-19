@@ -1,0 +1,168 @@
+import groovy.lang.Closure;
+
+apply plugin: BackgroundTaskPlugin
+
+task stopAllBackgroundTasks
+clean.dependsOn 'stopAllBackgroundTasks'
+
+class BackgroundTaskPlugin implements Plugin {
+	void apply(def project) {
+		project.convention.plugins.backgroundTask = new BackgroundTaskConvention(project)
+	}
+}
+
+class BackgroundTaskConvention {
+	def project
+	def processName
+	def commandLine
+	def workDir=new File(".")
+	def group
+	BackgroundTaskConvention(p) {
+		project=p
+	}
+	
+	def backgroundTask(Closure close) {
+
+		workDir=new File(".")
+		group="Background Process"
+		close.delegate=this
+		close()
+		def c=this
+		
+		["start","stop","restart","status"].each { String taskAction ->
+			project.task(taskAction+c.processName,type: BackgroundTask) {
+				processName=c.processName
+				commandLine=c.commandLine
+				workDir=c.workDir
+				action=taskAction
+				group=c.group
+			}
+		}
+		project.tasks.stopAllBackgroundTasks.dependsOn "stop${c.processName}"
+	}
+}
+
+
+import org.apache.tools.ant.taskdefs.condition.Os
+
+
+public class BackgroundTask extends DefaultTask {
+	String processName=name
+	List<String> commandLine
+	File workDir
+	File lockDir=new File("build/background")
+	File lock
+	String action= "start"
+		
+	protected List<String> decorateCommandline(List<String> c) {
+		if(Os.isFamily(Os.FAMILY_WINDOWS)) {
+			// if windows, run it in another shell
+			 return ["cmd","/s","/c","start",'"' + processName + '"', "cmd", "/s","/c"] + c;
+		}
+		return c
+	}
+	
+	boolean isLocked() {
+		if(!lock.exists()) {
+			return false;
+		}
+		return isRunning();
+	}
+	
+	@TaskAction
+	void runCommand() {
+		lockDir.mkdirs()
+		if(!lock) {
+			lock=new File(lockDir,"lock"+processName)
+		}
+
+
+		switch(action) {
+			case "start": startProcess(); break;
+			case "stop": stopProcess(); break;
+			case "restart": stopProcess(); startProcess(); break;
+			case "status" : statusProcess(); break;
+			default:
+				throw new IllegalArgumentException("No such action " + action)
+		}
+		
+	}
+	
+	void startProcess() {
+		if(isLocked()) {
+			println "Background process ${processName} already running, skipping."
+			return;
+		}
+		def c=decorateCommandline(commandLine);
+		ProcessBuilder processBuilder=new ProcessBuilder(c)
+		if(workDir) {
+			workDir.mkdir()
+			processBuilder.directory(workDir)
+		}
+		processBuilder.redirectErrorStream=true
+		def process = processBuilder.start()
+		process.waitFor()
+		createLockFile()
+	}
+	
+	String findPid() {
+		if(Os.isFamily(Os.FAMILY_WINDOWS)) {
+			return processName
+		}
+		if(lock.exists()) {
+			return new String(lock.bytes)
+		}
+		return null;
+	}
+	
+	void statusProcess() {
+		String pid=findPid()
+		if(pid) {
+			println "Process ${processName} running as ${pid}"
+		} else {
+			println "Process ${processName} is not running"
+		}
+	}
+	
+	void stopProcess() {
+		String pid=findPid();
+		if(pid==null) {
+			println "No process found for " + processName;
+		}
+		def cmd
+		if(Os.isFamily(Os.FAMILY_WINDOWS)) {
+			cmd="taskkill /FI \"WINDOWTITLE eq ${pid}\""
+		} else {
+			cmd="kill ${pid}"
+		}
+		cmd.execute()
+		if(lock.exists()) {
+			lock.delete()
+		}
+	}
+	
+	boolean isRunning() {
+		String pid=findPid()
+		if(!pid) {
+			return false;
+		}
+		def cmd
+		if(Os.isFamily(Os.FAMILY_WINDOWS)) {
+			cmd="tasklist /FI \"WINDOWTITLE eq ${pid}\""
+			Process p=cmd.execute()
+			p.waitFor();
+			return !p.text.contains("No tasks")
+		} else {
+			cmd="ps ${pid}"
+			Process p=cmd.execute()
+			p.waitFor();
+			return p.exitValue() != 0
+		}
+		
+		
+	}
+	
+	void createLockFile() {
+		lock.text = processName
+	}
+}
