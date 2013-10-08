@@ -1,24 +1,23 @@
 /*
-Copyright 2013 TensorWrench, LLC 
-
-Licensed under the Apache License, Version 2.0 (the "License"); 
-you may not use this file except in compliance with the License. 
-You may obtain a copy of the License at 
-
-http://www.apache.org/licenses/LICENSE-2.0 
-
-Unless required by applicable law or agreed to in writing, software 
-distributed under the License is distributed on an "AS IS" BASIS, 
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
-See the License for the specific language governing permissions and 
-limitations under the License.
-*/
+ Copyright 2013 TensorWrench, LLC 
+ Licensed under the Apache License, Version 2.0 (the "License"); 
+ you may not use this file except in compliance with the License. 
+ You may obtain a copy of the License at 
+ http://www.apache.org/licenses/LICENSE-2.0 
+ Unless required by applicable law or agreed to in writing, software 
+ distributed under the License is distributed on an "AS IS" BASIS, 
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+ See the License for the specific language governing permissions and 
+ limitations under the License.
+ */
 apply plugin: 'java'
 apply plugin: 'eclipse'
 apply plugin: 'pmd'
+apply plugin: 'maven'
+apply plugin: 'signing'
+
 apply from:"file:src/gradle/emma.gradle"
 apply from:"file:src/gradle/backgroundTask.gradle"
-apply plugin: 'maven'
 
 //===============================================
 // Project settings
@@ -30,7 +29,7 @@ ext {
 	shiroVersion='1.2.+'
 }
 
-version = '1.0' + (hasProperty("isRelease")?"":"-SNAPSHOT")
+version = '0.1'
 group 'com.tensorwrench.shiro'
 sourceCompatibility = 1.7
 
@@ -41,9 +40,9 @@ if(!hasProperty("repoUrl")) {
 // Build Tools
 //===============================================
 buildscript {
-	repositories { 
-		mavenCentral() 
-	}  
+	repositories {
+		mavenCentral()
+	}
 }
 
 //===============================================
@@ -51,7 +50,7 @@ buildscript {
 //===============================================
 repositories {
 	mavenLocal()
-  mavenCentral()
+	mavenCentral()
 }
 
 dependencies {
@@ -59,12 +58,12 @@ dependencies {
 			"org.mongodb:mongo-java-driver:${mongoDriverVersion}"
 			, "org.testng:testng:${testngVersion}"
 			,"org.apache.shiro:shiro-core:${shiroVersion}"
-  )
-	
+			)
+
 	testCompile(
 			"com.tensorwrench.testng:mongodb-testng:1.+"
-	)
-	
+			)
+
 	emma "emma:emma:2.0.5312", "emma:emma_ant:2.0.5312"
 }
 
@@ -103,8 +102,8 @@ test.dependsOn "startMongoDB"
 //==========================================================================
 jar {
 	manifest {
-		attributes 'Title': 'shiro-mongodb-realm',
-				       'Version': version
+		attributes 'Title': rootProject.name,
+				'Version': version
 	}
 }
 
@@ -122,15 +121,19 @@ artifacts {
 	archives(sourcesJar)
 	archives(javadocJar)
 }
+
+signing {
+	sign configurations.archives
+}
+
 def customizePom(pom) {
 	pom.project {
-		packaging "jar"
-		name "shiro-mongodb-realm"
+		name rootProject.name
 		description "MongoDB Realm for Apache Shiro"
-		url "https://github.com/TensorWrench/shiro-mongodb-realm"
+		url "https://github.com/TensorWrench/${rootProject.name}"
 		scm {
-			connection "scm:git:https://github.com/TensorWrench/shiro-mongodb-realm"
-			url "https://github.com/TensorWrench/shiro-mongodb-realm"
+			connection "scm:git:https://github.com/TensorWrench/${rootProject.name}"
+			url "https://github.com/TensorWrench/${rootProject.name}"
 		}
 		developers {
 			developer {
@@ -151,18 +154,24 @@ def customizePom(pom) {
 install {
 	repositories.mavenInstaller {
 		pom.groupId = project.group
+		pom.packaging = "jar"
 		customizePom(pom)
 	}
 }
 
 uploadArchives {
-		repositories {
-			 mavenDeployer {
-					 repository(url: new File(repoUrl).toURI())
-					 pom.groupId = project.group
-					 customizePom(pom)
-			 }
+	repositories {
+		mavenDeployer {
+			beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+			repository(url: "https://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+				authentication(userName: sonatypeUsername, password: sonatypePassword)
+			}
+
+			pom.groupId = project.group
+			customizePom(pom)
 		}
+	}
 }
 
 //==========================================================================

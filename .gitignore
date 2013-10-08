@@ -4,3 +4,4 @@
 .settings
 build
 bin
+/.nb-gradle/profiles/private/
