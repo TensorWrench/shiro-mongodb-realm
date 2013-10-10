@@ -1,47 +1,49 @@
 /*
- Copyright 2013 TensorWrench, LLC 
- Licensed under the Apache License, Version 2.0 (the "License"); 
- you may not use this file except in compliance with the License. 
- You may obtain a copy of the License at 
- http://www.apache.org/licenses/LICENSE-2.0 
- Unless required by applicable law or agreed to in writing, software 
- distributed under the License is distributed on an "AS IS" BASIS, 
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
- See the License for the specific language governing permissions and 
- limitations under the License.
- */
+Copyright 2013 TensorWrench, LLC 
+
+Licensed under the Apache License, Version 2.0 (the "License"); 
+you may not use this file except in compliance with the License. 
+You may obtain a copy of the License at 
+
+http://www.apache.org/licenses/LICENSE-2.0 
+
+Unless required by applicable law or agreed to in writing, software 
+distributed under the License is distributed on an "AS IS" BASIS, 
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. 
+See the License for the specific language governing permissions and 
+limitations under the License.
+*/
 apply plugin: 'java'
 apply plugin: 'eclipse'
 apply plugin: 'pmd'
-apply plugin: 'maven'
-apply plugin: 'signing'
-
-apply from:"file:src/gradle/emma.gradle"
 apply from:"file:src/gradle/backgroundTask.gradle"
-
+apply plugin: 'signing'
+apply plugin: 'maven'
+apply plugin: 'emma'
 //===============================================
 // Project settings
 //===============================================
 ext {
+	testngVersion='6.8'	
 	mongoDir=new File("$buildDir/mongo-data");
-	testngVersion='6.8'
-	mongoDriverVersion='2.11.+'
+  mongoDriverVersion='2.11.+'
 	shiroVersion='1.2.+'
 }
 
-version = '0.1'
-group 'com.tensorwrench.shiro'
+version = projectVersion
+group = projectGroup
 sourceCompatibility = 1.7
 
-if(!hasProperty("repoUrl")) {
-	ext.repoUrl="${buildDir}/mvnRepo"
-}
 //===============================================
 // Build Tools
 //===============================================
 buildscript {
 	repositories {
+		mavenLocal()
 		mavenCentral()
+	}
+	dependencies {
+		classpath "com.tensorwrench.gradle:gradle-emma-plugin:+"
 	}
 }
 
@@ -50,28 +52,26 @@ buildscript {
 //===============================================
 repositories {
 	mavenLocal()
-	mavenCentral()
+  mavenCentral()
 }
 
 dependencies {
 	compile(
-			"org.mongodb:mongo-java-driver:${mongoDriverVersion}"
-			, "org.testng:testng:${testngVersion}"
-			,"org.apache.shiro:shiro-core:${shiroVersion}"
-			)
-
+		"org.mongodb:mongo-java-driver:${mongoDriverVersion}"
+		,"org.apache.shiro:shiro-core:${shiroVersion}"
+  )		
+	
 	testCompile(
-			"com.tensorwrench.testng:mongodb-testng:1.+"
-			)
-
-	emma "emma:emma:2.0.5312", "emma:emma_ant:2.0.5312"
+		"org.testng:testng:${testngVersion}"
+		,"com.tensorwrench.testng:mongodb-testng:+"
+	)
 }
 
 //===============================================
 // Project Overhead
 //===============================================
 task wrapper(type: Wrapper) {
-	gradleVersion="1.6"
+	gradleVersion="1.8"
 }
 
 eclipse.classpath {
@@ -102,8 +102,8 @@ test.dependsOn "startMongoDB"
 //==========================================================================
 jar {
 	manifest {
-		attributes 'Title': rootProject.name,
-				'Version': version
+		attributes 'Title': projectTitle,
+				       'Version': version
 	}
 }
 
@@ -122,18 +122,17 @@ artifacts {
 	archives(javadocJar)
 }
 
-signing {
-	sign configurations.archives
-}
+signing { sign configurations.archives }
 
 def customizePom(pom) {
 	pom.project {
-		name rootProject.name
-		description "MongoDB Realm for Apache Shiro"
-		url "https://github.com/TensorWrench/${rootProject.name}"
+		packaging "jar"
+		name projectTitle
+		description projectDescription
+		url projectGithubUrl
 		scm {
-			connection "scm:git:https://github.com/TensorWrench/${rootProject.name}"
-			url "https://github.com/TensorWrench/${rootProject.name}"
+			connection "scm:git:${projectGithubUrl}"
+			url projectGithubUrl
 		}
 		developers {
 			developer {
@@ -142,11 +141,11 @@ def customizePom(pom) {
 			}
 		}
 		licenses {
-			license {
-				name 'The Apache Software License, Version 2.0'
-				url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-				distribution 'repo'
-			}
+				license {
+						name 'The Apache Software License, Version 2.0'
+						url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+						distribution 'repo'
+				}
 		}
 	}
 }
@@ -154,8 +153,7 @@ def customizePom(pom) {
 install {
 	repositories.mavenInstaller {
 		pom.groupId = project.group
-		pom.packaging = "jar"
-		customizePom(pom)
+    customizePom(pom)
 	}
 }
 
